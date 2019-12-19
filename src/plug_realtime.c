@@ -4956,18 +4956,28 @@ void RT_process_image( RT_input * rtin )
           RT_when_to_merge() == RT_CM_MERGE_AFTER_REG ) {
 
          int tt, ntt=DSET_NUM_TIMES( rtin->dset[g_reg_src_chan] ) ;
-         int tfirst = rtin->mrg_nvol;
 
          for( tt = rtin->mrg_nvol; tt < ntt && tt < rtin->reg_nvol; tt++ ) {
             if( verbose > 1 )
                fprintf(stderr,"++ about to merge time index %d\n", tt);
             RT_merge( rtin, cc, tt);
          }
+      }
 
          /* possibly send mot params and ROI aves   2 Mar 2017 [rickr] */
-         if ( rtin->mp_tcp_use > 0 && rtin->reg_mode == REGMODE_3D_RTIME )
-            RT_mp_comm_send_data_wrapper( rtin, tfirst, ntt );
-      }
+if ( rtin->mp_tcp_use > 0 && rtin->reg_mode == REGMODE_3D_RTIME )
+{
+   int tfirst = rtin->mp_npsets, ttop;
+   if ( RT_when_to_merge() == RT_CM_MERGE_AFTER_REG )
+      ttop = rtin->mrg_nvol;
+   else
+      ttop = rtin->reg_nvol;
+fprintf(stderr,"== rcr : SDW : calling post-reg send data wrapper\n");
+fprintf(stderr,"== rcr : SDW : from %d to %d\n", tfirst, ttop);
+            RT_mp_comm_send_data_wrapper( rtin, tfirst, ttop );
+fprintf(stderr,"== rcr : SDW : post-send data wrapper, nmsg=%d\n",
+               rtin->mp_npsets);
+}
 
       /* Cameron Craddock
          If a mask is specified, but for some reason the communication
@@ -6515,16 +6525,16 @@ void RT_registration_3D_realtime( RT_input *rtin )
       yar[5] = rtin->reg_psi   + ttbot ;
       yar[6] = rtin->reg_theta + ttbot ;
 
-      /* send the data off over tcp connection               30 Mar 2004 [rickr] */
-      /* - if merging after reg, send the data after merging  2 Mar 2017 [rickr] */
-      if ( rtin->mp_tcp_use > 0 && RT_when_to_merge() != RT_CM_MERGE_AFTER_REG ) {
-          RT_mp_comm_send_data_wrapper(rtin, ttbot, ntt);
-      } else if( g_show_times ) {
+      /* send the data off over tcp connection           30 Mar 2004 [rickr] */
+      /* - if merge after reg, send data after merging    2 Mar 2017 [rickr] */
+      /* *** no longer send data at this point ***       19 Dec 2019 [rickr] */
+      /*     (only call RT_mp_comm_send_data_wrapper from RT_process_image)  */
+
+      if( g_show_times ) {
           char vmesg[64];
           sprintf(vmesg,"registered %d vol(s), %d..%d",ntt-ttbot,ttbot,ntt-1);
           RT_show_duration(vmesg);
       }
-
 
       if( ttbot > 0 )  /* modify yar after send_data, when ttbot > 0 */
       {
